@@ -38,6 +38,8 @@ void AProjektAthenaProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* Other
 	{
 		OtherComp->AddImpulseAtLocation(GetVelocity() * 100.0f, GetActorLocation());
 
+		OtherComp->SetWorldScale3D(FVector(0.5));
+
 		Destroy();
 	}
 }
