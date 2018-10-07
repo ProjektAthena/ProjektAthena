@@ -8,6 +8,7 @@
 
 class UInputComponent;
 class ABaseWeapon;
+class UCharacterMovementComponent;
 
 UCLASS(config=Game)
 class AProjektAthenaCharacter : public ACharacter
@@ -55,6 +56,8 @@ public:
 protected:
 	virtual void BeginPlay();
 
+	virtual void Landed(const FHitResult & Hit);
+
 public:
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=Camera)
@@ -93,11 +96,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FName TPPSocketName;
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerSpawnWeapon(TSubclassOf<ABaseWeapon> NewWeapon);
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "CharacterMovement")
+	float BoostJumpHeight;
 
-	UFUNCTION()
-	void SpawnWeapon(TSubclassOf<ABaseWeapon> NewWeapon);
+	bool bHasJumped;
 
 protected:
 	
@@ -112,6 +114,11 @@ protected:
 
 	/** Handles stafing movement, left and right */
 	void MoveRight(float Val);
+
+	void JumpOrBoost();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerJumpOrBoost();
 
 	/**
 	 * Called via input to turn at a given rate.
@@ -138,6 +145,13 @@ protected:
 	void TouchUpdate(const ETouchIndex::Type FingerIndex, const FVector Location);
 	TouchData	TouchItem;
 	
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSpawnWeapon(TSubclassOf<ABaseWeapon> NewWeapon);
+
+	UFUNCTION()
+	void SpawnWeapon(TSubclassOf<ABaseWeapon> NewWeapon);
+
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;

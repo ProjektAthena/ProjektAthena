@@ -6,6 +6,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/InputSettings.h"
 #include "HeadMountedDisplayFunctionLibrary.h"
 #include "Public/BaseWeapon.h"
@@ -44,8 +45,8 @@ AProjektAthenaCharacter::AProjektAthenaCharacter()
 	Mesh1P->RelativeLocation = FVector(-0.5f, -4.4f, -155.7f);
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
-	
-
+	GetCharacterMovement()->AirControl = 0.5;
+	BoostJumpHeight = 780;
 
 	// Default offset from the character location for projectiles to spawn
 	GunOffset = FVector(100.0f, 0.0f, 10.0f);
@@ -53,7 +54,8 @@ AProjektAthenaCharacter::AProjektAthenaCharacter()
 
 	TPPSocketName = "WeaponSocket";
 
-
+	NetUpdateFrequency = 66.0f;
+	MinNetUpdateFrequency = 33.0f;
 	// Note: The ProjectileClass and the skeletal mesh/anim blueprints for Mesh1P, FP_Gun, and VR_Gun 
 	// are set in the derived blueprint asset named MyCharacter to avoid direct content references in C++.
 
@@ -98,6 +100,11 @@ void AProjektAthenaCharacter::BeginPlay()
 
 }
 
+void AProjektAthenaCharacter::Landed(const FHitResult & Hit)
+{
+	bHasJumped = false;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Input
 
@@ -107,7 +114,7 @@ void AProjektAthenaCharacter::SetupPlayerInputComponent(class UInputComponent* P
 	check(PlayerInputComponent);
 
 	// Bind jump events
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &AProjektAthenaCharacter::JumpOrBoost);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
 	// Bind fire event
@@ -246,43 +253,6 @@ void AProjektAthenaCharacter::EndTouch(const ETouchIndex::Type FingerIndex, cons
 	TouchItem.bIsPressed = false;
 }
 
-//Commenting this section out to be consistent with FPS BP template.
-//This allows the user to turn without using the right virtual joystick
-
-//void AProjektAthenaCharacter::TouchUpdate(const ETouchIndex::Type FingerIndex, const FVector Location)
-//{
-//	if ((TouchItem.bIsPressed == true) && (TouchItem.FingerIndex == FingerIndex))
-//	{
-//		if (TouchItem.bIsPressed)
-//		{
-//			if (GetWorld() != nullptr)
-//			{
-//				UGameViewportClient* ViewportClient = GetWorld()->GetGameViewport();
-//				if (ViewportClient != nullptr)
-//				{
-//					FVector MoveDelta = Location - TouchItem.Location;
-//					FVector2D ScreenSize;
-//					ViewportClient->GetViewportSize(ScreenSize);
-//					FVector2D ScaledDelta = FVector2D(MoveDelta.X, MoveDelta.Y) / ScreenSize;
-//					if (FMath::Abs(ScaledDelta.X) >= 4.0 / ScreenSize.X)
-//					{
-//						TouchItem.bMoved = true;
-//						float Value = ScaledDelta.X * BaseTurnRate;
-//						AddControllerYawInput(Value);
-//					}
-//					if (FMath::Abs(ScaledDelta.Y) >= 4.0 / ScreenSize.Y)
-//					{
-//						TouchItem.bMoved = true;
-//						float Value = ScaledDelta.Y * BaseTurnRate;
-//						AddControllerPitchInput(Value);
-//					}
-//					TouchItem.Location = Location;
-//				}
-//				TouchItem.Location = Location;
-//			}
-//		}
-//	}
-//}
 
 void AProjektAthenaCharacter::MoveForward(float Value)
 {
@@ -299,6 +269,40 @@ void AProjektAthenaCharacter::MoveRight(float Value)
 	{
 		// add movement in that direction
 		AddMovementInput(GetActorRightVector(), Value);
+	}
+}
+
+void AProjektAthenaCharacter::ServerJumpOrBoost_Implementation()
+{
+	JumpOrBoost();
+}
+
+bool AProjektAthenaCharacter::ServerJumpOrBoost_Validate()
+{
+	return true;
+}
+
+void AProjektAthenaCharacter::JumpOrBoost()
+{
+	if (Role < ROLE_Authority)
+	{
+		ServerJumpOrBoost();
+	}
+
+	UCharacterMovementComponent* MoveComp = GetCharacterMovement();
+
+	if (MoveComp->IsMovingOnGround())
+	{
+		Jump();
+	}
+	else
+	{
+		if (bHasJumped==false)
+		{
+		LaunchCharacter(FVector(0, 0, BoostJumpHeight), false, true);
+		bHasJumped = true;
+		}
+
 	}
 }
 
