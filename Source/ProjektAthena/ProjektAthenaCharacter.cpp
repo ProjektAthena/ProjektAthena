@@ -8,9 +8,11 @@
 #include "Components/InputComponent.h"
 #include "GameFramework/InputSettings.h"
 #include "HeadMountedDisplayFunctionLibrary.h"
+#include "Public/BaseWeapon.h"
 #include "Kismet/GameplayStatics.h"
 #include "MotionControllerComponent.h"
 #include "XRMotionControllerBase.h" // for FXRMotionControllerBase::RightHandSourceId
+#include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFPChar, Warning, All);
 
@@ -21,6 +23,7 @@ AProjektAthenaCharacter::AProjektAthenaCharacter()
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(55.f, 96.0f);
+
 
 	// set our turn rates for input
 	BaseTurnRate = 45.f;
@@ -41,23 +44,15 @@ AProjektAthenaCharacter::AProjektAthenaCharacter()
 	Mesh1P->RelativeLocation = FVector(-0.5f, -4.4f, -155.7f);
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
-	Mesh3P = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterMesh3P"));
-	Mesh3P->SetupAttachment(GetCapsuleComponent());
+	
 
-	// Create a gun mesh component
-	FP_Gun = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FP_Gun"));
-	FP_Gun->SetOnlyOwnerSee(true);			// only the owning player will see this mesh
-	FP_Gun->bCastDynamicShadow = false;
-	FP_Gun->CastShadow = false;
-	// FP_Gun->SetupAttachment(Mesh1P, TEXT("GripPoint"));
-	FP_Gun->SetupAttachment(RootComponent);
-
-	FP_MuzzleLocation = CreateDefaultSubobject<USceneComponent>(TEXT("MuzzleLocation"));
-	FP_MuzzleLocation->SetupAttachment(FP_Gun);
-	FP_MuzzleLocation->SetRelativeLocation(FVector(0.2f, 48.4f, -10.6f));
 
 	// Default offset from the character location for projectiles to spawn
 	GunOffset = FVector(100.0f, 0.0f, 10.0f);
+
+
+	TPPSocketName = "WeaponSocket";
+
 
 	// Note: The ProjectileClass and the skeletal mesh/anim blueprints for Mesh1P, FP_Gun, and VR_Gun 
 	// are set in the derived blueprint asset named MyCharacter to avoid direct content references in C++.
@@ -72,17 +67,35 @@ void AProjektAthenaCharacter::BeginPlay()
 	// Call the base class  
 	Super::BeginPlay();
 
+
 	if (IsLocallyControlled())
 	{
-		Mesh3P->SetVisibility(false, false);
+		GetMesh()->SetVisibility(false, false);
 	}
 	else
 	{
 		Mesh1P->SetVisibility(false, false);
 	}
 
-	//Attach gun mesh component to Skeleton, doing it here because the skeleton is not yet created in the constructor
-	FP_Gun->AttachToComponent(Mesh1P, FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), TEXT("GripPoint"));
+	if (Role == ROLE_Authority)
+	{
+
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		CurrentWeapon = GetWorld()->SpawnActor<ABaseWeapon>(PrimaryWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+		if (CurrentWeapon)
+		{
+			CurrentWeapon->SetOwner(this);
+
+				CurrentWeapon->AttachToComponent(Mesh1P, FAttachmentTransformRules::SnapToTargetNotIncludingScale, CurrentWeapon->WeaponSocketName);
+		
+
+		}
+
+	}
+
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -116,6 +129,43 @@ void AProjektAthenaCharacter::SetupPlayerInputComponent(class UInputComponent* P
 	PlayerInputComponent->BindAxis("TurnRate", this, &AProjektAthenaCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AProjektAthenaCharacter::LookUpAtRate);
+}
+void AProjektAthenaCharacter::ServerSpawnWeapon_Implementation(TSubclassOf<ABaseWeapon> NewWeapon)
+{
+	SpawnWeapon(NewWeapon);
+}
+
+bool AProjektAthenaCharacter::ServerSpawnWeapon_Validate(TSubclassOf<ABaseWeapon> NewWeapon)
+{
+	return true;
+}
+
+void AProjektAthenaCharacter::SpawnWeapon(TSubclassOf<ABaseWeapon> NewWeapon)
+{
+	if (Role < ROLE_Authority)
+	{
+		ServerSpawnWeapon(NewWeapon);
+		return;
+	}
+	
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	CurrentWeapon = GetWorld()->SpawnActor<ABaseWeapon>(NewWeapon, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+	if (CurrentWeapon)
+	{
+		CurrentWeapon->SetOwner(this);
+		
+		if (IsLocallyControlled())
+		{
+			CurrentWeapon->AttachToComponent(Mesh1P, FAttachmentTransformRules::SnapToTargetNotIncludingScale, CurrentWeapon->WeaponSocketName);
+		}
+		else
+		{
+			CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, TPPSocketName);
+		}
+	}
+
 }
 
 void AProjektAthenaCharacter::OnFire()
@@ -277,4 +327,13 @@ bool AProjektAthenaCharacter::EnableTouchscreenMovement(class UInputComponent* P
 	}
 	
 	return false;
+}
+
+void AProjektAthenaCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AProjektAthenaCharacter, CurrentWeapon);
+
+
 }
