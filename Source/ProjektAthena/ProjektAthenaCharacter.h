@@ -7,6 +7,7 @@
 #include "ProjektAthenaCharacter.generated.h"
 
 class UInputComponent;
+class ABaseWeapon;
 
 UCLASS(config=Game)
 class AProjektAthenaCharacter : public ACharacter
@@ -17,8 +18,8 @@ class AProjektAthenaCharacter : public ACharacter
 	UPROPERTY(VisibleDefaultsOnly, Category=Mesh)
 	class USkeletalMeshComponent* Mesh1P;
 
-	UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
-	class USkeletalMeshComponent* Mesh3P;
+	//UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
+	//class USkeletalMeshComponent* Mesh3P;
 
 	/** Gun mesh: 1st person view (seen only by self) */
 	UPROPERTY(VisibleDefaultsOnly, Category = Mesh)
@@ -82,6 +83,21 @@ public:
 	/** Whether to use motion controller location for aiming. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gameplay)
 	uint32 bUsingMotionControllers : 1;
+
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	ABaseWeapon* CurrentWeapon;
+
+	UPROPERTY(EditDefaultsOnly, Category = Projectile)
+	TSubclassOf<ABaseWeapon> PrimaryWeaponClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	FName TPPSocketName;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSpawnWeapon(TSubclassOf<ABaseWeapon> NewWeapon);
+
+	UFUNCTION()
+	void SpawnWeapon(TSubclassOf<ABaseWeapon> NewWeapon);
 
 protected:
 	
