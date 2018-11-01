@@ -116,7 +116,8 @@ void AProjektAthenaCharacter::SetupPlayerInputComponent(class UInputComponent* P
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
 
 	// Bind fire event
-	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AProjektAthenaCharacter::OnFire);
+	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AProjektAthenaCharacter::StartFire);
+	PlayerInputComponent->BindAction("Fire", IE_Released, this, &AProjektAthenaCharacter::StopFire);
 
 	// Enable touchscreen input
 	EnableTouchscreenMovement(PlayerInputComponent);
@@ -219,6 +220,25 @@ void AProjektAthenaCharacter::OnFire()
 			AnimInstance->Montage_Play(FireAnimation, 1.f);
 		}
 	}
+}
+
+void AProjektAthenaCharacter::StartFire()
+{
+	if (CurrentWeapon)
+	{
+		if(CurrentWeapon->bIsAutomatic)
+		{
+			
+		}
+		else
+		{
+			CurrentWeapon->Fire();
+		}
+	}
+}
+
+void AProjektAthenaCharacter::StopFire()
+{
 }
 
 void AProjektAthenaCharacter::OnResetVR()

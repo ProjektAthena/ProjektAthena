@@ -23,6 +23,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
 	FName WeaponSocketName;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
+	bool bIsAutomatic;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -39,25 +42,23 @@ protected:
 	float BaseDamage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
-	float SPread;
+	float Spread;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
 	int NrOfShots;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stats")
-	bool bIsAutomatic;
-
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerFire();
-	
-	UFUNCTION()
-	void Fire();
+
+
+	void PlayFireEffects();
+
 
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	
+	void Fire();
 	
 };
